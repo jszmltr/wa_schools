@@ -41,10 +41,143 @@
             color: #7f8c8d;
             font-style: italic;
         }
+        .school-popup .marker-toggle {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+        }
+        .school-popup .marker-toggle:hover {
+            background: #2980b9;
+        }
+        .school-popup .marker-toggle.hidden {
+            background: #e74c3c;
+        }
+        .school-popup .marker-toggle.hidden:hover {
+            background: #c0392b;
+        }
+        .school-popup .marker-hidden {
+            opacity: 0.3;
+        }
+        .district-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            max-height: 80vh;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+            display: none;
+        }
+        .district-controls.visible {
+            display: block;
+        }
+        .district-controls.collapsed {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            overflow: hidden;
+        }
+        .district-controls.collapsed #district-filters {
+            display: none;
+        }
+        .district-controls h3 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .district-controls.collapsed h3 {
+            margin: 0;
+        }
+        .district-controls.collapsed h3 span {
+            display: none;
+        }
+        .toggle-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px;
+            font-size: 20px;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+        }
+        .toggle-button:hover {
+            color: #3498db;
+        }
+        .district-checkbox {
+            display: block;
+            margin: 5px 0;
+        }
+        .district-checkbox input {
+            margin-right: 5px;
+        }
+        .control-buttons {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        .control-button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .control-button:hover {
+            background: #2980b9;
+        }
+        .map-control-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            border: none;
+            border-radius: 4px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            width: 40px;
+            height: 40px;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .map-control-button:hover {
+            background: #f8f9fa;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
+    <button class="map-control-button" title="Toggle district filters">≡</button>
+    <div class="district-controls">
+        <h3>
+            <span>Dzielnice</span>
+            <button class="toggle-button" title="Toggle district filters">≡</button>
+        </h3>
+        <div class="control-buttons">
+            <button class="control-button" id="select-all">Zaznacz wszystkie</button>
+            <button class="control-button" id="deselect-all">Odznacz wszystkie</button>
+        </div>
+        <div id="district-filters"></div>
+    </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/schools_data.js"></script>
@@ -58,33 +191,151 @@
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
+        // Store markers by district
+        const markersByDistrict = {};
+        const allMarkers = [];
+
         // Create markers for each school
         SCHOOLS_DATA.forEach(school => {
             const marker = L.marker([school.coordinates.lat, school.coordinates.lng])
                 .addTo(map);
 
             // Create popup content
-            const popupContent = `
-                <div class="school-popup">
-                    <h3>${school.name}</h3>
-                    <p class="score">Ranking: ${school.rank} (${school.score.toFixed(2)} pkt)</p>
-                    <p class="district">Dzielnica: ${school.district}</p>
-                    <p>Adres: ${school.address}</p>
-                    ${school.website ? `<p>Strona: <a href="${school.website}" target="_blank">${school.website}</a></p>` : ''}
-                    <p>Dojazd samochodem: ${school.driving_time}</p>
-                    <p>Dojazd komunikacją: ${school.transit_time}</p>
-                    <p>Pieszo: ${school.walking_time}</p>
-                    <p>Odległość: ${school.distance}</p>
-                </div>
+            const popupContent = document.createElement('div');
+            popupContent.className = 'school-popup';
+            popupContent.innerHTML = `
+                <h3>${school.name}</h3>
+                <p class="score">Ranking: ${school.rank} (${school.score.toFixed(2)} pkt)</p>
+                <p class="district">Dzielnica: ${school.district}</p>
+                <p>Adres: <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(school.address)}" target="_blank">${school.address}</a></p>
+                ${school.website ? `<p>Strona: <a href="${school.website}" target="_blank">${school.website}</a></p>` : ''}
+                <p>Dojazd samochodem: <a href="https://www.google.com/maps/dir/?api=1&origin=Siedmiogrodzka+9+Warszawa&destination=${encodeURIComponent(school.address)}&travelmode=driving" target="_blank">${school.driving_time}</a></p>
+                <p>Dojazd komunikacją: <a href="https://www.google.com/maps/dir/?api=1&origin=Siedmiogrodzka+9+Warszawa&destination=${encodeURIComponent(school.address)}&travelmode=transit" target="_blank">${school.transit_time}</a></p>
+                <p>Pieszo: ${school.walking_time}</p>
+                <p>Odległość: ${school.distance}</p>
+                <button class="marker-toggle">Ukryj</button>
             `;
 
+            // Add click handler for the toggle button
+            const toggleButton = popupContent.querySelector('.marker-toggle');
+            toggleButton.addEventListener('click', function() {
+                const isHidden = this.classList.toggle('hidden');
+                this.textContent = isHidden ? 'Pokaż' : 'Ukryj';
+                
+                // Get the marker's icon element
+                const icon = marker.getElement();
+                if (icon) {
+                    if (isHidden) {
+                        icon.style.opacity = '0.3';
+                        icon.style.filter = 'grayscale(100%)';
+                    } else {
+                        icon.style.opacity = '1';
+                        icon.style.filter = 'none';
+                    }
+                }
+            });
+
             marker.bindPopup(popupContent);
+            
+            // Store marker by district
+            if (!markersByDistrict[school.district]) {
+                markersByDistrict[school.district] = [];
+            }
+            markersByDistrict[school.district].push(marker);
+            allMarkers.push(marker);
         });
 
-        // Fit map bounds to show all markers
-        const markers = SCHOOLS_DATA.map(school => [school.coordinates.lat, school.coordinates.lng]);
-        const bounds = L.latLngBounds(markers);
-        map.fitBounds(bounds);
+        // Add red marker for Siedmiogrodzka 9
+        const siedmiogrodzkaIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div style="background-color: red; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>`,
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+        });
+
+        const siedmiogrodzkaMarker = L.marker([52.2297, 20.9867], {icon: siedmiogrodzkaIcon})
+            .addTo(map)
+            .bindPopup('Siedmiogrodzka 9, Warszawa');
+
+        // Create district filters
+        const districtFilters = document.getElementById('district-filters');
+        const districts = Object.keys(markersByDistrict).sort();
+        const districtControls = document.querySelector('.district-controls');
+        const toggleButton = document.querySelector('.toggle-button');
+        const mapControlButton = document.querySelector('.map-control-button');
+        const selectAllButton = document.getElementById('select-all');
+        const deselectAllButton = document.getElementById('deselect-all');
+
+        districts.forEach(district => {
+            const label = document.createElement('label');
+            label.className = 'district-checkbox';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = true;
+            checkbox.addEventListener('change', (e) => {
+                const markers = markersByDistrict[district];
+                markers.forEach(marker => {
+                    if (e.target.checked) {
+                        marker.addTo(map);
+                    } else {
+                        marker.remove();
+                    }
+                });
+            });
+
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(district));
+            districtFilters.appendChild(label);
+        });
+
+        // Function to update map bounds based on visible markers
+        function updateMapBounds() {
+            const visibleMarkers = allMarkers.filter(marker => map.hasLayer(marker));
+            if (visibleMarkers.length > 0) {
+                const bounds = L.latLngBounds(visibleMarkers.map(marker => marker.getLatLng()));
+                map.fitBounds(bounds);
+            }
+        }
+
+        // Initial bounds - only set once when the map loads
+        updateMapBounds();
+
+        // Toggle district controls visibility
+        mapControlButton.addEventListener('click', () => {
+            districtControls.classList.toggle('visible');
+            mapControlButton.textContent = districtControls.classList.contains('visible') ? '×' : '≡';
+        });
+
+        // Toggle district controls collapse
+        toggleButton.addEventListener('click', () => {
+            districtControls.classList.toggle('collapsed');
+            toggleButton.textContent = districtControls.classList.contains('collapsed') ? '≡' : '×';
+        });
+
+        // Select all districts
+        selectAllButton.addEventListener('click', () => {
+            const checkboxes = districtFilters.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                if (!checkbox.checked) {
+                    checkbox.checked = true;
+                    const markers = markersByDistrict[checkbox.nextSibling.textContent];
+                    markers.forEach(marker => marker.addTo(map));
+                }
+            });
+        });
+
+        // Deselect all districts
+        deselectAllButton.addEventListener('click', () => {
+            const checkboxes = districtFilters.querySelectorAll('input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                if (checkbox.checked) {
+                    checkbox.checked = false;
+                    const markers = markersByDistrict[checkbox.nextSibling.textContent];
+                    markers.forEach(marker => marker.remove());
+                }
+            });
+        });
     </script>
 </body>
 </html> 

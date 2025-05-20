@@ -207,10 +207,10 @@
                 <h3>${school.name}</h3>
                 <p class="score">Ranking: ${school.rank} (${school.score.toFixed(2)} pkt)</p>
                 <p class="district">Dzielnica: ${school.district}</p>
-                <p>Adres: <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(school.address)}" target="_blank">${school.address}</a></p>
-                ${school.website ? `<p>Strona: <a href="${school.website}" target="_blank">${school.website}</a></p>` : ''}
-                <p>Dojazd samochodem: <a href="https://www.google.com/maps/dir/?api=1&origin=Siedmiogrodzka+9+Warszawa&destination=${encodeURIComponent(school.address)}&travelmode=driving" target="_blank">${school.driving_time}</a></p>
-                <p>Dojazd komunikacją: <a href="https://www.google.com/maps/dir/?api=1&origin=Siedmiogrodzka+9+Warszawa&destination=${encodeURIComponent(school.address)}&travelmode=transit" target="_blank">${school.transit_time}</a></p>
+                <p>Adres: <a href="https://maps.google.com/?q=${encodeURIComponent(school.address)}" target="_blank" rel="noopener noreferrer">${school.address}</a></p>
+                ${school.website ? `<p>Strona: <a href="${school.website}" target="_blank" rel="noopener noreferrer">${school.website}</a></p>` : ''}
+                <p>Dojazd samochodem: <a href="https://maps.google.com/directions?origin=Siedmiogrodzka+9+Warszawa&destination=${encodeURIComponent(school.address)}&travelmode=driving" target="_blank" rel="noopener noreferrer">${school.driving_time}</a></p>
+                <p>Dojazd komunikacją: <a href="https://maps.google.com/directions?origin=Siedmiogrodzka+9+Warszawa&destination=${encodeURIComponent(school.address)}&travelmode=transit" target="_blank" rel="noopener noreferrer">${school.transit_time}</a></p>
                 <p>Pieszo: ${school.walking_time}</p>
                 <p>Odległość: ${school.distance}</p>
                 <button class="marker-toggle">Ukryj</button>

@@ -76,6 +76,7 @@
             overflow-y: auto;
             transition: all 0.3s ease;
             display: none;
+            width: 280px;
         }
         .district-controls.visible {
             display: block;
@@ -162,6 +163,116 @@
         .map-control-button:hover {
             background: #f8f9fa;
         }
+        .schools-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            max-height: 80vh;
+            width: 280px;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+        }
+        .schools-panel.collapsed {
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            overflow: hidden;
+        }
+        .schools-panel h3 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .schools-panel.collapsed h3 span {
+            display: none;
+        }
+        .school-item {
+            border-bottom: 1px solid #eee;
+            padding: 10px 0;
+        }
+        .school-item:last-child {
+            border-bottom: none;
+        }
+        .school-item h4 {
+            margin: 0 0 5px 0;
+            color: #2c3e50;
+        }
+        .school-item p {
+            margin: 3px 0;
+            color: #34495e;
+            font-size: 0.9em;
+        }
+        .school-item .score {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        .school-item .district {
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        .school-item a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        .school-item a:hover {
+            text-decoration: underline;
+        }
+
+        /* Mobile styles */
+        @media (max-width: 768px) {
+            .schools-panel {
+                width: calc(100% - 20px);
+                max-width: 280px;
+                left: 10px;
+                right: 10px;
+            }
+            .district-controls {
+                width: calc(100% - 20px);
+                max-width: 280px;
+                right: 10px;
+            }
+            .school-popup {
+                max-width: 250px;
+            }
+            .control-buttons {
+                flex-direction: column;
+            }
+            .control-button {
+                width: 100%;
+            }
+            .school-item {
+                font-size: 0.9em;
+            }
+            .map-control-button {
+                top: 60px;
+            }
+        }
+
+        /* Small mobile styles */
+        @media (max-width: 480px) {
+            .schools-panel {
+                top: 60px;
+            }
+            .district-controls {
+                top: 60px;
+            }
+            .map-control-button {
+                top: 10px;
+            }
+            .school-popup {
+                max-width: 200px;
+            }
+            .school-item {
+                font-size: 0.8em;
+            }
+        }
     </style>
 </head>
 <body>
@@ -177,6 +288,13 @@
             <button class="control-button" id="deselect-all">Odznacz wszystkie</button>
         </div>
         <div id="district-filters"></div>
+    </div>
+    <div class="schools-panel">
+        <h3>
+            <span>Widoczne szkoły</span>
+            <button class="toggle-button" title="Toggle schools list">≡</button>
+        </h3>
+        <div id="schools-list"></div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -233,6 +351,7 @@
                         icon.style.filter = 'none';
                     }
                 }
+                updateSchoolsList();
             });
 
             marker.bindPopup(popupContent);
@@ -336,6 +455,51 @@
                 }
             });
         });
+
+        // Function to update the schools list
+        function updateSchoolsList() {
+            const schoolsList = document.getElementById('schools-list');
+            schoolsList.innerHTML = '';
+
+            const visibleSchools = SCHOOLS_DATA.filter((school, index) => {
+                const marker = allMarkers[index];
+                return marker && map.hasLayer(marker) && marker.getElement().style.opacity !== '0.3';
+            });
+
+            visibleSchools.forEach(school => {
+                const schoolItem = document.createElement('div');
+                schoolItem.className = 'school-item';
+                schoolItem.innerHTML = `
+                    <h4>${school.name}</h4>
+                    <p class="score">Ranking: ${school.rank} (${school.score.toFixed(2)} pkt)</p>
+                    <p class="district">Dzielnica: ${school.district}</p>
+                    <p>Adres: <a href="https://maps.google.com/?q=${encodeURIComponent(school.address)}" target="_blank" rel="noopener noreferrer">${school.address}</a></p>
+                    ${school.website ? `<p>Strona: <a href="${school.website}" target="_blank" rel="noopener noreferrer">${school.website}</a></p>` : ''}
+                    <p>Dojazd samochodem: <a href="https://maps.google.com/directions?origin=Siedmiogrodzka+9+Warszawa&destination=${encodeURIComponent(school.address)}&travelmode=driving" target="_blank" rel="noopener noreferrer">${school.driving_time}</a></p>
+                    <p>Dojazd komunikacją: <a href="https://maps.google.com/directions?origin=Siedmiogrodzka+9+Warszawa&destination=${encodeURIComponent(school.address)}&travelmode=transit" target="_blank" rel="noopener noreferrer">${school.transit_time}</a></p>
+                    <p>Pieszo: ${school.walking_time}</p>
+                    <p>Odległość: ${school.distance}</p>
+                `;
+                schoolsList.appendChild(schoolItem);
+            });
+        }
+
+        // Toggle schools panel
+        const schoolsPanel = document.querySelector('.schools-panel');
+        const schoolsToggleButton = schoolsPanel.querySelector('.toggle-button');
+        schoolsToggleButton.addEventListener('click', () => {
+            schoolsPanel.classList.toggle('collapsed');
+            schoolsToggleButton.textContent = schoolsPanel.classList.contains('collapsed') ? '≡' : '×';
+        });
+
+        // Update schools list when districts are toggled
+        const districtCheckboxes = document.querySelectorAll('#district-filters input[type="checkbox"]');
+        districtCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', updateSchoolsList);
+        });
+
+        // Initial schools list
+        updateSchoolsList();
     </script>
 </body>
 </html> 

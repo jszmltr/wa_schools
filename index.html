@@ -314,9 +314,19 @@
         const allMarkers = [];
 
         // Create markers for each school
-        SCHOOLS_DATA.forEach(school => {
+        SCHOOLS_DATA.forEach((school, index) => {
             const marker = L.marker([school.coordinates.lat, school.coordinates.lng])
                 .addTo(map);
+
+            // Check if marker was previously hidden
+            const isHidden = localStorage.getItem(`marker_${index}`) === 'true';
+            if (isHidden) {
+                const icon = marker.getElement();
+                if (icon) {
+                    icon.style.opacity = '0.3';
+                    icon.style.filter = 'grayscale(100%)';
+                }
+            }
 
             // Create popup content
             const popupContent = document.createElement('div');
@@ -325,13 +335,13 @@
                 <h3>${school.name}</h3>
                 <p class="score">Ranking: ${school.rank} (${school.score.toFixed(2)} pkt)</p>
                 <p class="district">Dzielnica: ${school.district}</p>
-                <p>Adres: <a href="https://maps.google.com/?q=${encodeURIComponent(school.address)}" target="_blank" rel="noopener noreferrer">${school.address}</a></p>
+                <p>Adres: <a href="https://maps.google.com/maps?q=${encodeURIComponent(school.address)}" target="_blank" rel="noopener noreferrer">${school.address}</a></p>
                 ${school.website ? `<p>Strona: <a href="${school.website}" target="_blank" rel="noopener noreferrer">${school.website}</a></p>` : ''}
-                <p>Dojazd samochodem: <a href="https://maps.google.com/directions?origin=Siedmiogrodzka+9+Warszawa&destination=${encodeURIComponent(school.address)}&travelmode=driving" target="_blank" rel="noopener noreferrer">${school.driving_time}</a></p>
-                <p>Dojazd komunikacją: <a href="https://maps.google.com/directions?origin=Siedmiogrodzka+9+Warszawa&destination=${encodeURIComponent(school.address)}&travelmode=transit" target="_blank" rel="noopener noreferrer">${school.transit_time}</a></p>
+                <p>Dojazd samochodem: <a href="https://maps.google.com/maps?saddr=Siedmiogrodzka+9+Warszawa&daddr=${encodeURIComponent(school.address)}&dirflg=d" target="_blank" rel="noopener noreferrer">${school.driving_time}</a></p>
+                <p>Dojazd komunikacją: <a href="https://maps.google.com/maps?saddr=Siedmiogrodzka+9+Warszawa&daddr=${encodeURIComponent(school.address)}&dirflg=r" target="_blank" rel="noopener noreferrer">${school.transit_time}</a></p>
                 <p>Pieszo: ${school.walking_time}</p>
                 <p>Odległość: ${school.distance}</p>
-                <button class="marker-toggle">Ukryj</button>
+                <button class="marker-toggle ${isHidden ? 'hidden' : ''}">${isHidden ? 'Pokaż' : 'Ukryj'}</button>
             `;
 
             // Add click handler for the toggle button
@@ -351,6 +361,10 @@
                         icon.style.filter = 'none';
                     }
                 }
+
+                // Save state to localStorage
+                localStorage.setItem(`marker_${index}`, isHidden);
+                
                 updateSchoolsList();
             });
 
@@ -473,10 +487,10 @@
                     <h4>${school.name}</h4>
                     <p class="score">Ranking: ${school.rank} (${school.score.toFixed(2)} pkt)</p>
                     <p class="district">Dzielnica: ${school.district}</p>
-                    <p>Adres: <a href="https://maps.google.com/?q=${encodeURIComponent(school.address)}" target="_blank" rel="noopener noreferrer">${school.address}</a></p>
+                    <p>Adres: <a href="https://maps.google.com/maps?q=${encodeURIComponent(school.address)}" target="_blank" rel="noopener noreferrer">${school.address}</a></p>
                     ${school.website ? `<p>Strona: <a href="${school.website}" target="_blank" rel="noopener noreferrer">${school.website}</a></p>` : ''}
-                    <p>Dojazd samochodem: <a href="https://maps.google.com/directions?origin=Siedmiogrodzka+9+Warszawa&destination=${encodeURIComponent(school.address)}&travelmode=driving" target="_blank" rel="noopener noreferrer">${school.driving_time}</a></p>
-                    <p>Dojazd komunikacją: <a href="https://maps.google.com/directions?origin=Siedmiogrodzka+9+Warszawa&destination=${encodeURIComponent(school.address)}&travelmode=transit" target="_blank" rel="noopener noreferrer">${school.transit_time}</a></p>
+                    <p>Dojazd samochodem: <a href="https://maps.google.com/maps?saddr=Siedmiogrodzka+9+Warszawa&daddr=${encodeURIComponent(school.address)}&dirflg=d" target="_blank" rel="noopener noreferrer">${school.driving_time}</a></p>
+                    <p>Dojazd komunikacją: <a href="https://maps.google.com/maps?saddr=Siedmiogrodzka+9+Warszawa&daddr=${encodeURIComponent(school.address)}&dirflg=r" target="_blank" rel="noopener noreferrer">${school.transit_time}</a></p>
                     <p>Pieszo: ${school.walking_time}</p>
                     <p>Odległość: ${school.distance}</p>
                 `;
@@ -500,6 +514,21 @@
 
         // Initial schools list
         updateSchoolsList();
+
+        // Add a button to clear all hidden states
+        const clearButton = document.createElement('button');
+        clearButton.className = 'control-button';
+        clearButton.textContent = 'Wyczyść ukryte';
+        clearButton.style.marginTop = '10px';
+        clearButton.addEventListener('click', () => {
+            // Clear all hidden states from localStorage
+            for (let i = 0; i < SCHOOLS_DATA.length; i++) {
+                localStorage.removeItem(`marker_${i}`);
+            }
+            // Reload the page to reset all markers
+            location.reload();
+        });
+        document.querySelector('.control-buttons').appendChild(clearButton);
     </script>
 </body>
 </html> 

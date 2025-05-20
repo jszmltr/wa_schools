@@ -87,7 +87,8 @@
             padding: 0;
             overflow: hidden;
         }
-        .district-controls.collapsed #district-filters {
+        .district-controls.collapsed #district-filters,
+        .district-controls.collapsed .time-filters {
             display: none;
         }
         .district-controls h3 {
@@ -273,6 +274,40 @@
                 font-size: 0.8em;
             }
         }
+
+        .time-filters {
+            margin: 15px 0;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .time-filters h4 {
+            margin: 10px 0 5px 0;
+            color: #2c3e50;
+        }
+
+        .time-filter-group {
+            margin-bottom: 15px;
+        }
+
+        .time-input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 5px 0;
+        }
+
+        .time-input-group label {
+            min-width: 40px;
+            color: #7f8c8d;
+        }
+
+        .time-input-group input {
+            width: 80px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
     </style>
 </head>
 <body>
@@ -280,14 +315,34 @@
     <button class="map-control-button" title="Toggle district filters">≡</button>
     <div class="district-controls">
         <h3>
-            <span>Dzielnice</span>
-            <button class="toggle-button" title="Toggle district filters">≡</button>
+            <span>Filtry</span>
+            <button class="toggle-button" title="Toggle filters">≡</button>
         </h3>
         <div class="control-buttons">
             <button class="control-button" id="select-all">Zaznacz wszystkie</button>
             <button class="control-button" id="deselect-all">Odznacz wszystkie</button>
         </div>
         <div id="district-filters"></div>
+        <div class="time-filters">
+            <h4>Dojazd samochodem</h4>
+            <div class="time-filter-group">
+                <div class="time-input-group">
+                    <input type="number" id="min-driving-time" placeholder="min" min="0">
+                    <label>min</label>
+                    <input type="number" id="max-driving-time" placeholder="max" min="0">
+                    <label>max</label>
+                </div>
+            </div>
+            <h4>Dojazd komunikacją</h4>
+            <div class="time-filter-group">
+                <div class="time-input-group">
+                    <input type="number" id="min-transit-time" placeholder="min" min="0">
+                    <label>min</label>
+                    <input type="number" id="max-transit-time" placeholder="max" min="0">
+                    <label>max</label>
+                </div>
+            </div>
+        </div>
     </div>
     <div class="schools-panel">
         <h3>
@@ -405,7 +460,18 @@
             
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
-            checkbox.checked = true;
+            // Check localStorage for district state, default to true if not set
+            const isChecked = localStorage.getItem(`district_${district}`) === null ? true : localStorage.getItem(`district_${district}`) === 'true';
+            checkbox.checked = isChecked;
+            
+            // Apply initial visibility based on saved state
+            const markers = markersByDistrict[district];
+            markers.forEach(marker => {
+                if (!isChecked) {
+                    marker.remove();
+                }
+            });
+            
             checkbox.addEventListener('change', (e) => {
                 const markers = markersByDistrict[district];
                 markers.forEach(marker => {
@@ -415,6 +481,9 @@
                         marker.remove();
                     }
                 });
+                // Save district state to localStorage
+                localStorage.setItem(`district_${district}`, e.target.checked);
+                updateSchoolsList();
             });
 
             label.appendChild(checkbox);
@@ -454,8 +523,11 @@
                     checkbox.checked = true;
                     const markers = markersByDistrict[checkbox.nextSibling.textContent];
                     markers.forEach(marker => marker.addTo(map));
+                    // Save district state to localStorage
+                    localStorage.setItem(`district_${checkbox.nextSibling.textContent}`, 'true');
                 }
             });
+            updateSchoolsList();
         });
 
         // Deselect all districts
@@ -466,18 +538,83 @@
                     checkbox.checked = false;
                     const markers = markersByDistrict[checkbox.nextSibling.textContent];
                     markers.forEach(marker => marker.remove());
+                    // Save district state to localStorage
+                    localStorage.setItem(`district_${checkbox.nextSibling.textContent}`, 'false');
                 }
             });
+            updateSchoolsList();
         });
+
+        // Function to parse time string to minutes
+        function parseTimeToMinutes(timeStr) {
+            const match = timeStr.match(/(\d+) min/);
+            return match ? parseInt(match[1]) : Infinity;
+        }
+
+        // Function to filter schools by travel time
+        function filterSchoolsByTime() {
+            const minDrivingTime = document.getElementById('min-driving-time').value;
+            const maxDrivingTime = document.getElementById('max-driving-time').value;
+            const minTransitTime = document.getElementById('min-transit-time').value;
+            const maxTransitTime = document.getElementById('max-transit-time').value;
+
+            SCHOOLS_DATA.forEach((school, index) => {
+                const marker = allMarkers[index];
+                if (!marker) return;
+
+                const drivingTime = parseTimeToMinutes(school.driving_time);
+                const transitTime = parseTimeToMinutes(school.transit_time);
+
+                const drivingTimeMatch = (!minDrivingTime || drivingTime >= parseInt(minDrivingTime)) && 
+                                      (!maxDrivingTime || drivingTime <= parseInt(maxDrivingTime));
+                const transitTimeMatch = (!minTransitTime || transitTime >= parseInt(minTransitTime)) && 
+                                       (!maxTransitTime || transitTime <= parseInt(maxTransitTime));
+
+                if (drivingTimeMatch && transitTimeMatch) {
+                    if (map.hasLayer(marker)) {
+                        marker.getElement().style.opacity = '1';
+                        marker.getElement().style.filter = 'none';
+                    }
+                } else {
+                    if (map.hasLayer(marker)) {
+                        marker.getElement().style.opacity = '0.3';
+                        marker.getElement().style.filter = 'grayscale(100%)';
+                    }
+                }
+            });
+
+            updateSchoolsList();
+        }
+
+        // Add event listeners for time filter inputs
+        document.getElementById('min-driving-time').addEventListener('input', filterSchoolsByTime);
+        document.getElementById('max-driving-time').addEventListener('input', filterSchoolsByTime);
+        document.getElementById('min-transit-time').addEventListener('input', filterSchoolsByTime);
+        document.getElementById('max-transit-time').addEventListener('input', filterSchoolsByTime);
 
         // Function to update the schools list
         function updateSchoolsList() {
             const schoolsList = document.getElementById('schools-list');
             schoolsList.innerHTML = '';
 
+            const minDrivingTime = document.getElementById('min-driving-time').value;
+            const maxDrivingTime = document.getElementById('max-driving-time').value;
+            const minTransitTime = document.getElementById('min-transit-time').value;
+            const maxTransitTime = document.getElementById('max-transit-time').value;
+
             const visibleSchools = SCHOOLS_DATA.filter((school, index) => {
                 const marker = allMarkers[index];
-                return marker && map.hasLayer(marker) && marker.getElement().style.opacity !== '0.3';
+                if (!marker || !map.hasLayer(marker)) return false;
+
+                const drivingTime = parseTimeToMinutes(school.driving_time);
+                const transitTime = parseTimeToMinutes(school.transit_time);
+
+                const drivingTimeMatch = (!minDrivingTime || drivingTime >= parseInt(minDrivingTime)) && 
+                                      (!maxDrivingTime || drivingTime <= parseInt(maxDrivingTime));
+                const transitTimeMatch = (!minTransitTime || transitTime >= parseInt(minTransitTime)) && 
+                                       (!maxTransitTime || transitTime <= parseInt(maxTransitTime));
+
+                return marker.getElement().style.opacity !== '0.3' && drivingTimeMatch && transitTimeMatch;
             });
 
             visibleSchools.forEach(school => {
@@ -525,7 +662,11 @@
             for (let i = 0; i < SCHOOLS_DATA.length; i++) {
                 localStorage.removeItem(`marker_${i}`);
             }
-            // Reload the page to reset all markers
+            // Clear all district states from localStorage
+            districts.forEach(district => {
+                localStorage.removeItem(`district_${district}`);
+            });
+            // Reload the page to reset all markers and districts
             location.reload();
         });
         document.querySelector('.control-buttons').appendChild(clearButton);
